@@ -1,0 +1,900 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { initializeApp } from 'firebase/app';
+import { 
+  getFirestore, 
+  collection, 
+  getDocs,
+  addDoc, 
+  onSnapshot, 
+  serverTimestamp,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  arrayUnion,
+  arrayRemove
+} from 'firebase/firestore';
+import { 
+  getAuth, 
+  signInAnonymously, 
+  signInWithCustomToken,
+  onAuthStateChanged
+} from 'firebase/auth';
+import { 
+  Send, User, MessageCircle, Hash, Shield, Lock, LogOut, 
+  AlertCircle, Smile, ThumbsUp, Heart, Laugh, 
+  Users, Loader2, Image as ImageIcon, Search, X, TrendingUp, 
+  Link as LinkIcon, Sparkles, Trash2, ExternalLink, Camera,
+  Bold, Italic, Underline, Strikethrough, Palette, Settings,
+  Moon, Sun, RefreshCcw, Terminal, ShieldCheck, ChevronLeft,
+  Download, Upload, CheckCircle2, Wallpaper, Type,
+  Coins, PlusCircle
+} from 'lucide-react';
+
+// Firebase configuration from environment
+const firebaseConfig = JSON.parse(__firebase_config);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'live-chat-v2';
+
+const TENOR_API_KEY = "LIVDTRZ96JGW"; 
+
+const EMOJI_LIST = [
+  '😀', '😃', '😄', '😁', '😅', '😂', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', 
+  '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', 
+  '😞', '😔', '😟', '😕', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨', '😰', '😥', 
+  '😢', '😭', '😱', '😖', '😣', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', 
+  '💀', '☠️', '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖', '👋', '🤚', '🖐️', '✋', '🖖', '👌', 
+  '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', 
+  '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪', '🦾', '🦵', '🦿', '🦶', 
+  '👂', '🦻', '👃', '🧠', '🦷', '👀', '👁️', '👅', '👄', '💋', '🩸', '❤️', '🧡', '💛', '💚', '💙', 
+  '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️', '✝️', 
+  '☪️', '🕉️', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️', '🛐', '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', 
+  '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🦆', '🦅', '🦉', '🦇', 
+  '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🦋', '🐌', '🐞', '🐜', '🦟', '🐢', '🐍', '🦎', '🦖', '🐙', 
+  '🦑', '🦐', '🦞', '🦀', '🐡', '🐠', '🐟', '🐬', '🐳', '🐋', '🦈', '🐊', '🐅', '🐆', '🦓', '🦍', 
+  '🐘', '🦛', '🦏', '🐪', '🐫', '🦒', '🦘', '🐃', '🐄', '🐎', '🐖', '🐏', '🐑', '🐐', '🦌', '🐕', 
+  '🐩', '🦮', '🐕‍🦺', '🐈', '🐓', '🦃', '🦚', '🦜', '🦢', '🦩', '🕊️', '🐇', '🦝', '🦨', '🦡', '🦦', 
+  '🦥', '🐁', '🐀', '🐿️', '🦔', '🐾', '🐉', '🌵', '🎄', '🌲', '🌳', '🌴', '🌱', '🌿', '☘️', '🍀', 
+  '🎍', '🎋', '🍃', '🍂', '🍁', '🍄', '🐚', '🍏', '🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', 
+  '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌽', '🥕', '🧄', 
+  '🧅', '🥔', '🍠', '🥐', '🥯', '🍞', '🥖', '🥨', '🧀', '🥚', '🍳', '🧈', '🥞', '🧇', '🥩', 
+  '🍗', '🍖', '🦴', '🌭', '🍔', '🍟', '🍕', '🥪', '🥙', '🧆', '🥗', '🥘', '🍝', 
+  '🍜', '🍲', '🍛', '🍣', '🍱', '🥟', '🦪', '🍤', '🍙', '🍚', '🍘', '🍥', '🥠', '🥮', '🍢', '🍡', 
+  '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '🌰', '🥜', 
+  '🍯', '🥛', '☕', '🍵', '🧉', '🥤', '🍹', '🍺', '⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', 
+  '🥏', '🎱', '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '⛳', '🏹', '🎣', '🤿', '🥊', '🥋', '⛸️', 
+  '🎿', '🛷', '🎯', '🪁', '🔥', '✨', '🌟', '🌈', '☀️', '☁️', '❄️', '⭐', '🎈', '🎉', '🎊', '🎁', 
+  '🎫', '🏆', '🎖️', '🏅', '🥇', '🥈', '🥉', '💎', '🕯️', '💡', '🔦', '🏮', '🧱', '🧿', '🔫', '💣', 
+  '🧨', '🪓', '🔪', '🗡️', '⚔️', '🛡️', '⚰️', '⚱️', '🏺', '🔮', '📿', '💈', '🧲', '🧪', '🧫', '🧬', 
+  '🔬', '🔭', '📡', '💉', '💊', '🩹', '🩺', '🚪', '🪑', '🚽', '🚿', '🛀', '🧼', '🪒', '🧻', '🧴', 
+  '🧹', '🧺', '🧯', '🛒', '🔔', '🔕', '🎼', '🎵', '🎶', '🎙️', '🎚️', '🎛️', '🎤', '🎧', '📻', '🎷'
+];
+
+const DEFAULT_REACTIONS = ['👍', '❤️', '😂', '😀'];
+
+const PRESET_COLORS = [
+  { name: 'Red', hex: '#ef4444' },
+  { name: 'Orange', hex: '#f97316' },
+  { name: 'Yellow', hex: '#eab308' },
+  { name: 'Green', hex: '#22c55e' },
+  { name: 'Blue', hex: '#3b82f6' },
+  { name: 'Blue-dark', hex: '#2563eb' },
+  { name: 'Purple', hex: '#a855f7' },
+  { name: 'Pink', hex: '#ec4899' },
+];
+
+const SLOT_SYMBOLS = ['🍒', '🍋', '🍇', '🔔', '💎', '7️⃣'];
+
+const CURATED_GIFS = [
+  { id: 'c1', url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJueXZ6ZWJ6Znd6ZWJ6ZWJ6ZWJ6Znd6ZSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7abKhOpuMcmLj3S8/giphy.gif', title: 'Thumbs Up' },
+  { id: 'c2', url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJueXZ6ZWJ6Znd6ZWJ6ZWJ6ZWJ6Znd6ZSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/lMameLqvT9sD5X1iPb/giphy.gif', title: 'Celebrate' },
+  { id: 'c3', url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJueXZ6ZWJ6Znd6ZWJ6ZWJ6ZWJ6Znd6ZSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/H764S0n70F9u8N4W5S/giphy.gif', title: 'Laughing' },
+  { id: 'c4', url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJueXZ6ZWJ6Znd6ZWJ6ZWJ6ZWJ6Znd6ZSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7TKMGpxVfFvTfNte/giphy.gif', title: 'Dancing' },
+  { id: 'c5', url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJueXZ6ZWJ6Znd6ZWJ6ZWJ6ZWJ6Znd6ZSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l0HlUxcWRsqSumX8A/giphy.gif', title: 'Heart' },
+  { id: 'c6', url: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJueXZ6ZWJ6Znd6ZWJ6ZWJ6ZWJ6Znd6ZSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/Z9WQLSrsQzK5fzs6LP/giphy.gif', title: 'Mind Blown' },
+];
+
+/**
+ * Slot Machine Component for Chat Messages
+ */
+const SlotMachine = ({ finalResult, bet, winAmount, darkMode, timestamp }) => {
+    const isNewMessage = timestamp ? (Date.now() - (timestamp.seconds * 1000) < 10000) : true;
+    const [reels, setReels] = useState(isNewMessage ? ['❓', '❓', '❓'] : finalResult);
+    const [spinning, setSpinning] = useState(isNewMessage);
+
+    useEffect(() => {
+        if (!spinning) return;
+        
+        let count = 0;
+        const interval = setInterval(() => {
+            setReels([
+                SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)],
+                SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)],
+                SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)]
+            ]);
+            count++;
+            if (count > 20) {
+                clearInterval(interval);
+                setReels(finalResult);
+                setSpinning(false);
+            }
+        }, 100);
+        return () => clearInterval(interval);
+    }, [finalResult, spinning]);
+
+    return (
+        <div className={`mt-2 p-4 rounded-2xl border-2 overflow-hidden ${darkMode ? 'bg-slate-900 border-blue-500/30' : 'bg-blue-50 border-blue-200'} flex flex-col items-center gap-3 min-w-[200px]`}>
+            <div className="flex gap-3">
+                {reels.map((s, i) => (
+                    <div key={i} className={`w-12 h-16 rounded-xl flex items-center justify-center text-3xl shadow-inner border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-blue-100'} ${spinning ? 'animate-bounce' : 'animate-in zoom-in'}`} style={{ animationDelay: `${i * 100}ms` }}>
+                        {s}
+                    </div>
+                ))}
+            </div>
+            {!spinning && (
+                <div className="text-center animate-in fade-in slide-in-from-bottom-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Result</p>
+                    <p className={`text-sm font-black ${winAmount > 0 ? 'text-emerald-500' : 'text-slate-400'}`}>
+                        {winAmount > 0 ? `WINNER! +${winAmount} pts` : 'No Luck! Try again'}
+                    </p>
+                    <p className="text-[9px] opacity-30 mt-0.5">Wagered {bet} pts</p>
+                </div>
+            )}
+        </div>
+    );
+};
+
+/**
+ * Rich Text Parser and Renderer
+ */
+const FormattedText = ({ text }) => {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const urls = [];
+  const placeholderText = text.replace(urlRegex, (match) => {
+    urls.push(match);
+    return `__URL_REF_${urls.length - 1}__`;
+  });
+
+  const parse = (content) => {
+    let parts = [content];
+    const tagParsers = [
+      { regex: /(\[color:#[0-9a-fA-F]{6}\].*?\[\/color\])/g, tag: 'color' },
+      { regex: /(\*\*.*?\*\*)/g, tag: 'bold' },
+      { regex: /(\*.*?\*)/g, tag: 'italic' },
+      { regex: /(__.*?__)/g, tag: 'underline' },
+      { regex: /(~~.*?~~)/g, tag: 'strike' }
+    ];
+
+    tagParsers.forEach(({ regex, tag }) => {
+      let next = [];
+      parts.forEach(p => {
+        if (typeof p !== 'string') return next.push(p);
+        const split = p.split(regex);
+        split.forEach((s, idx) => {
+          if (s === "") return;
+          if (tag === 'color' && s.startsWith('[color:')) {
+            const match = s.match(/\[color:(#[0-9a-fA-F]{6})\](.*?)\[\/color\]/);
+            if (match) next.push(<span key={`color-${idx}`} style={{ color: match[1] }}>{match[2]}</span>);
+            else next.push(s);
+          } else if (tag === 'bold' && s.startsWith('**') && s.endsWith('**')) {
+            next.push(<strong key={`bold-${idx}`} className="font-bold">{s.slice(2, -2)}</strong>);
+          } else if (tag === 'italic' && s.startsWith('*') && s.endsWith('*')) {
+            next.push(<em key={`italic-${idx}`} className="italic">{s.slice(1, -1)}</em>);
+          } else if (tag === 'underline' && s.startsWith('__') && s.endsWith('__')) {
+            next.push(<u key={`underline-${idx}`} className="underline">{s.slice(2, -2)}</u>);
+          } else if (tag === 'strike' && s.startsWith('~~') && s.endsWith('~~')) {
+            next.push(<del key={`strike-${idx}`} className="line-through">{s.slice(2, -2)}</del>);
+          } else {
+            next.push(s);
+          }
+        });
+      });
+      parts = next;
+    });
+
+    const final = [];
+    parts.forEach((p, pIdx) => {
+      if (typeof p !== 'string') return final.push(p);
+      const split = p.split(/(__URL_REF_\d+__)/g);
+      split.forEach((s, sIdx) => {
+        const match = s.match(/__URL_REF_(\d+)__/);
+        if (match) {
+            const url = urls[parseInt(match[1])];
+            final.push(
+                <a key={`url-${pIdx}-${sIdx}`} href={url} target="_blank" rel="noopener noreferrer" className="underline decoration-current opacity-70 hover:opacity-100 transition-all inline-flex items-center gap-0.5 text-blue-500">
+                    {url} <ExternalLink size={10} />
+                </a>
+            );
+        } else if (s !== "") {
+            final.push(s);
+        }
+      });
+    });
+    return final;
+  };
+  return <>{parse(placeholderText)}</>;
+};
+
+const Avatar = ({ src, name, size = "md", online = false, darkMode = false }) => {
+  const sizeClasses = {
+    sm: "w-6 h-6 text-[10px]",
+    md: "w-8 h-8 text-xs",
+    lg: "w-10 h-10 text-sm",
+    xl: "w-16 h-16 text-lg"
+  };
+
+  return (
+    <div className={`relative flex-shrink-0 ${sizeClasses[size]}`}>
+      <div className={`w-full h-full rounded-xl overflow-hidden flex items-center justify-center font-black shadow-sm ${
+        darkMode ? 'bg-slate-700 text-blue-400 border border-slate-600' : 'bg-blue-100 text-blue-600 border border-blue-200'
+      }`}>
+        {src ? (
+          <img src={src} alt={name} className="w-full h-full object-cover" />
+        ) : (
+          <span>{name?.[0]?.toUpperCase() || '?'}</span>
+        )}
+      </div>
+      {online && (
+        <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-slate-800"></div>
+      )}
+    </div>
+  );
+};
+
+const LinkPreview = ({ url, darkMode }) => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMeta = async () => {
+      try {
+        const res = await fetch(`https://api.microlink.io?url=${encodeURIComponent(url)}`);
+        const json = await res.json();
+        if (json.status === 'success') setData(json.data);
+      } catch (err) {
+        console.warn("Link preview failed:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMeta();
+  }, [url]);
+
+  if (loading) return (
+    <div className={`mt-2 p-3 border rounded-xl flex items-center gap-3 animate-pulse ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+      <div className={`w-12 h-12 rounded-lg ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+      <div className="flex-1 space-y-2">
+        <div className={`h-3 rounded w-1/2 ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+        <div className={`h-2 rounded w-3/4 ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+      </div>
+    </div>
+  );
+
+  if (!data || (!data.title && !data.description)) return null;
+
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className={`mt-2 block border rounded-xl overflow-hidden transition-colors shadow-sm group ${
+      darkMode ? 'bg-slate-800 border-slate-700 hover:border-blue-500' : 'bg-white border-slate-200 hover:border-blue-300'
+    }`}>
+      {data.image?.url && (
+        <div className={`h-32 w-full overflow-hidden ${darkMode ? 'bg-slate-900' : 'bg-slate-100'}`}>
+          <img src={data.image.url} alt="Preview" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+        </div>
+      )}
+      <div className="p-3">
+        <div className="flex items-center gap-1.5 mb-1">
+          {data.logo?.url && <img src={data.logo.url} className="w-4 h-4 rounded" alt="" />}
+          <span className={`text-[10px] font-bold uppercase tracking-tight truncate ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>{new URL(url).hostname}</span>
+        </div>
+        <h4 className={`text-sm font-bold line-clamp-1 mb-0.5 ${darkMode ? 'text-slate-100' : 'text-slate-800'}`}>{data.title}</h4>
+        <p className={`text-xs line-clamp-2 leading-snug ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>{data.description}</p>
+      </div>
+    </a>
+  );
+};
+
+export default function App() {
+  const [sessionUser, setSessionUser] = useState(null); 
+  const [chatProfile, setChatProfile] = useState(null); 
+  const [messages, setMessages] = useState([]);
+  const [activeUsers, setActiveUsers] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [authMode, setAuthMode] = useState('login'); 
+  const [formData, setFormData] = useState({ username: '', password: '', profilePic: '' });
+  const [adminPassword, setAdminPassword] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [error, setError] = useState('');
+  
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [chatSize, setChatSize] = useState('md'); 
+  const [showSettings, setShowSettings] = useState(false);
+  const [updatingProfile, setUpdatingProfile] = useState(false);
+  const [updatingBg, setUpdatingBg] = useState(false);
+  const [roomBg, setRoomBg] = useState('');
+
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showGifPicker, setShowGifPicker] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showSlotsModal, setShowSlotsModal] = useState(false);
+  const [showReactionCustomizer, setShowReactionCustomizer] = useState(false);
+  const [betAmount, setBetAmount] = useState('10');
+  
+  const [gifSearchQuery, setGifSearchQuery] = useState('');
+  const [gifResults, setGifResults] = useState([]);
+  const [isSearchingGifs, setIsSearchingGifs] = useState(false);
+  const [customGifUrl, setCustomGifUrl] = useState('');
+  const [showSidebar, setShowSidebar] = useState(true);
+  const [isTypingLocally, setIsTypingLocally] = useState(false);
+  
+  const [adminTaskLoading, setAdminTaskLoading] = useState(false);
+  const [adminTaskSuccess, setAdminTaskSuccess] = useState(false);
+  
+  const scrollRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const settingsFileInputRef = useRef(null);
+  const bgFileInputRef = useRef(null);
+  const messageImageInputRef = useRef(null);
+  const messageInputRef = useRef(null);
+  const importFileRef = useRef(null);
+  const lastWriteRef = useRef(0);
+
+  // Computed values
+  const usersTypingList = activeUsers.filter(u => u.isTyping && u.username !== chatProfile?.username);
+  const bubbleSizes = {
+    sm: "px-3 py-1.5 text-xs",
+    md: "px-5 py-3 text-sm",
+    lg: "px-6 py-4 text-base"
+  };
+
+  // Initial Auth
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (err) { console.error("Auth error:", err); }
+    };
+    initAuth();
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setSessionUser(u);
+      if (!u) {
+        setChatProfile(null);
+        setIsAdmin(false);
+      }
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const deletePresenceRecord = async (username) => {
+    if (!username) return;
+    try {
+      const presenceRef = doc(db, 'artifacts', appId, 'public', 'data', 'presence', username.toLowerCase());
+      await deleteDoc(presenceRef);
+    } catch (err) { console.error("Presence cleanup error:", err); }
+  };
+
+  // Heartbeat Presence
+  useEffect(() => {
+    if (!sessionUser || !chatProfile?.username || isAdmin) return;
+    const cleanUsername = chatProfile.username.toLowerCase();
+    const presenceRef = doc(db, 'artifacts', appId, 'public', 'data', 'presence', cleanUsername);
+    
+    const updatePresence = async (typing) => {
+      const now = Date.now();
+      if (now - lastWriteRef.current < 2000) return;
+      lastWriteRef.current = now;
+      try {
+        await setDoc(presenceRef, {
+          username: chatProfile.username,
+          profilePic: chatProfile.profilePic || '',
+          lastSeen: serverTimestamp(),
+          uid: sessionUser.uid,
+          isTyping: typing,
+          points: chatProfile.points ?? 100
+        }, { merge: true });
+      } catch (err) {}
+    };
+    updatePresence(isTypingLocally);
+    const interval = setInterval(() => updatePresence(isTypingLocally), 30000); 
+    const handleUnload = () => deletePresenceRecord(chatProfile.username);
+    window.addEventListener('beforeunload', handleUnload);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', handleUnload);
+    };
+  }, [sessionUser, chatProfile?.username, isAdmin, isTypingLocally]);
+
+  // Points Sync Listener
+  useEffect(() => {
+    if (!sessionUser || !chatProfile?.username || isAdmin) return;
+    const cleanUsername = chatProfile.username.toLowerCase();
+    const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'userRegistry', cleanUsername);
+    const unsubscribe = onSnapshot(userDocRef, (snap) => {
+        if (snap.exists()) {
+            const data = snap.data();
+            setChatProfile(prev => prev ? ({ 
+                ...prev, 
+                points: data.points ?? 100,
+                preferredReactions: data.preferredReactions ?? DEFAULT_REACTIONS
+            }) : null);
+        }
+    }, (err) => console.error("Sync error:", err));
+    return () => unsubscribe();
+  }, [sessionUser, chatProfile?.username, isAdmin]);
+
+  // Presence Snapshot
+  useEffect(() => {
+    if (!sessionUser || (!chatProfile && !isAdmin)) return;
+    const presenceRef = collection(db, 'artifacts', appId, 'public', 'data', 'presence');
+    const unsubscribe = onSnapshot(presenceRef, (snapshot) => {
+      const now = Date.now();
+      const users = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      const filteredUsers = users.filter(u => {
+        if (!u.lastSeen) return true;
+        const lastSeenMs = u.lastSeen.seconds * 1000;
+        return (now - lastSeenMs) < 90000; 
+      });
+      const sortedUsers = filteredUsers.sort((a, b) => (a.username || '').localeCompare(b.username || ''));
+      setActiveUsers(sortedUsers);
+    }, (err) => console.error("Presence sync error:", err));
+    return () => unsubscribe();
+  }, [sessionUser, chatProfile?.username, isAdmin]);
+
+  // Messages Listener
+  useEffect(() => {
+    if (!sessionUser || (!chatProfile && !isAdmin)) return;
+    const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
+    const unsubscribe = onSnapshot(messagesRef, (snapshot) => {
+      const msgs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      const sorted = msgs.sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
+      setMessages(sorted);
+    }, (err) => console.error("Messages sync error:", err));
+    return () => unsubscribe();
+  }, [sessionUser, chatProfile?.username, isAdmin]);
+
+  // Room Background Listener
+  useEffect(() => {
+    if (!sessionUser || (!chatProfile && !isAdmin)) return;
+    const bgDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'roomConfig', 'background');
+    const unsubscribe = onSnapshot(bgDocRef, (snap) => {
+      if (snap.exists()) setRoomBg(snap.data().url || '');
+    });
+    return () => unsubscribe();
+  }, [sessionUser, chatProfile?.username, isAdmin]);
+
+  useEffect(() => {
+    if (!showGifPicker) return;
+    const fetchTenorGifs = async () => {
+      if (!gifSearchQuery.trim()) { setGifResults([]); return; }
+      setIsSearchingGifs(true);
+      try {
+        const url = `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(gifSearchQuery)}&key=${TENOR_API_KEY}&client_key=chat_app&limit=12&media_filter=gif,tinygif`;
+        const response = await fetch(url);
+        const data = await response.json();
+        setGifResults(data.results || []);
+      } catch (err) { setGifResults([]); }
+      finally { setIsSearchingGifs(false); }
+    };
+    const delayDebounceFn = setTimeout(fetchTenorGifs, 600);
+    return () => clearTimeout(delayDebounceFn);
+  }, [gifSearchQuery, showGifPicker]);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages]);
+
+  const handleImageChange = (e, callback) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 800000) { setError('Image too large (Max 800KB)'); return; }
+      const reader = new FileReader();
+      reader.onloadend = () => callback(reader.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUpdateProfilePic = async (newPic) => {
+    if (!chatProfile) return;
+    setUpdatingProfile(true);
+    try {
+      const cleanUsername = chatProfile.username.toLowerCase();
+      const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'userRegistry', cleanUsername);
+      const presenceRef = doc(db, 'artifacts', appId, 'public', 'data', 'presence', cleanUsername);
+      await updateDoc(userDocRef, { profilePic: newPic });
+      await updateDoc(presenceRef, { profilePic: newPic });
+      setChatProfile(prev => prev ? ({ ...prev, profilePic: newPic }) : null);
+    } catch (err) { console.error(err); } finally { setUpdatingProfile(false); }
+  };
+
+  const handleUpdateReactions = async (newReactions) => {
+    if (!chatProfile) return;
+    try {
+      const cleanUsername = chatProfile.username.toLowerCase();
+      const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'userRegistry', cleanUsername);
+      await updateDoc(userDocRef, { preferredReactions: newReactions });
+    } catch (err) { console.error("Failed to update reactions", err); }
+  };
+
+  const handleUpdateRoomBg = async (newUrl) => {
+    if (!sessionUser) return;
+    setUpdatingBg(true);
+    try {
+      const bgDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'roomConfig', 'background');
+      await setDoc(bgDocRef, { url: newUrl }, { merge: true });
+    } catch (err) { console.error("BG update failed", err); } finally { setUpdatingBg(false); }
+  };
+
+  const handleExportData = async () => {
+    setAdminTaskLoading(true);
+    setAdminTaskSuccess(false);
+    try {
+      const msgsSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'messages'));
+      const messagesData = msgsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const usersSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'userRegistry'));
+      const usersData = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const payload = {
+        version: "2.3",
+        exportedAt: new Date().toISOString(),
+        appId: appId,
+        data: { messages: messagesData, userRegistry: usersData }
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'text/plain' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `chat_backup_${new Date().toISOString().split('T')[0]}.txt`;
+      link.click();
+      setAdminTaskSuccess(true);
+    } catch (err) { setError("Export failed."); } finally { setAdminTaskLoading(false); }
+  };
+
+  const handleImportData = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setAdminTaskLoading(true);
+    setAdminTaskSuccess(false);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const json = JSON.parse(event.target.result);
+        for (const user of json.data.userRegistry) {
+          const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'userRegistry', user.id);
+          const { id, ...userData } = user;
+          await setDoc(userRef, userData);
+        }
+        for (const msg of json.data.messages) {
+          const msgRef = doc(db, 'artifacts', appId, 'public', 'data', 'messages', msg.id);
+          const { id, ...msgData } = msg;
+          await setDoc(msgRef, msgData);
+        }
+        setAdminTaskSuccess(true);
+      } catch (err) { setError("Import failed: " + err.message); } finally { setAdminTaskLoading(false); }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleAdminAuth = (e) => {
+    e.preventDefault();
+    if (adminPassword === "030303lol") { setIsAdmin(true); setError(''); } 
+    else setError('Incorrect Administrator Password');
+  };
+
+  const handleCustomAuth = async (e) => {
+    e.preventDefault();
+    setError('');
+    const { username, password, profilePic } = formData;
+    if (!username || !password) { setError('Please fill in all fields'); return; }
+    const cleanUsername = username.trim().toLowerCase();
+    const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'userRegistry', cleanUsername);
+    try {
+      const userSnap = await getDoc(userDocRef);
+      if (authMode === 'signup') {
+        if (userSnap.exists()) { setError('Username already taken'); }
+        else {
+          const newProfile = { 
+              username: username.trim(), 
+              password, 
+              uid: sessionUser.uid, 
+              profilePic: profilePic || '', 
+              points: 100,
+              preferredReactions: DEFAULT_REACTIONS
+          };
+          await setDoc(userDocRef, newProfile);
+          setChatProfile(newProfile);
+        }
+      } else {
+        if (!userSnap.exists() || userSnap.data().password !== password) { setError('Invalid username or password'); }
+        else { setChatProfile(userSnap.data()); }
+      }
+    } catch (err) { setError('Connection failed.'); }
+  };
+
+  const handlePlaySlots = async (e) => {
+    e.preventDefault();
+    const bet = parseInt(betAmount);
+    if (!chatProfile?.username || isNaN(bet) || bet <= 0) return;
+    
+    const cleanUsername = chatProfile.username.toLowerCase();
+    const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'userRegistry', cleanUsername);
+    const snap = await getDoc(userDocRef);
+    const latestPoints = snap.exists() ? (snap.data().points ?? 100) : 0;
+
+    if (bet > latestPoints) { setError('Not enough points!'); return; }
+
+    setError('');
+    setShowSlotsModal(false);
+
+    const res = [
+        SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)],
+        SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)],
+        SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)]
+    ];
+
+    const uniqueCount = new Set(res).size;
+    let winAmount = 0;
+    if (uniqueCount === 1) winAmount = bet * 3;
+    else if (uniqueCount === 2) winAmount = bet * 2;
+
+    const finalPoints = latestPoints - bet + winAmount;
+
+    try {
+      await updateDoc(userDocRef, { points: finalPoints });
+      const presenceRef = doc(db, 'artifacts', appId, 'public', 'data', 'presence', cleanUsername);
+      await updateDoc(presenceRef, { points: finalPoints });
+      
+      const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
+      await addDoc(messagesRef, {
+        type: 'slots', bet, result: res, winAmount,
+        senderId: sessionUser.uid, senderName: chatProfile.username, senderPic: chatProfile.profilePic || '',
+        timestamp: serverTimestamp(), reactions: {} 
+      });
+    } catch (err) { console.error("Payout error:", err); }
+  };
+
+  const applyFormatting = (prefix, suffix = prefix) => {
+    const input = messageInputRef.current;
+    if (!input) return;
+    const start = input.selectionStart;
+    const end = input.selectionEnd;
+    const selected = newMessage.substring(start, end);
+    const formatted = newMessage.substring(0, start) + prefix + selected + suffix + newMessage.substring(end);
+    setNewMessage(formatted);
+    setTimeout(() => {
+      input.focus();
+      input.setSelectionRange(start + prefix.length, end + prefix.length);
+    }, 0);
+  };
+
+  const handleSendMessage = async (e, gifUrl = null, uploadUrl = null) => {
+    if (e) e.preventDefault();
+    const targetImg = uploadUrl || gifUrl || (customGifUrl.trim() ? customGifUrl : null);
+    if (!targetImg && !newMessage.trim()) return;
+    if (!chatProfile && !isAdmin) return;
+    try {
+      const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
+      await addDoc(messagesRef, {
+        text: targetImg ? "" : newMessage.trim(),
+        gifUrl: targetImg,
+        type: targetImg ? 'gif' : 'text',
+        senderId: sessionUser.uid,
+        senderName: isAdmin ? "[ADMIN]" : chatProfile.username,
+        senderPic: isAdmin ? "" : (chatProfile.profilePic || ''),
+        timestamp: serverTimestamp(),
+        reactions: {} 
+      });
+      setNewMessage('');
+      setCustomGifUrl('');
+      setIsTypingLocally(false);
+      setShowEmojiPicker(false);
+      setShowGifPicker(false);
+      setShowColorPicker(false);
+    } catch (err) { console.error(err); }
+  };
+
+  const handleReaction = async (messageId, emoji) => {
+    if (!chatProfile && !isAdmin) return;
+    const messageDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'messages', messageId);
+    const message = messages.find(m => m.id === messageId);
+    if (!message) return;
+    const name = isAdmin ? "[ADMIN]" : chatProfile?.username;
+    const hasReacted = (message.reactions?.[emoji] || []).includes(name);
+    try {
+      await updateDoc(messageDocRef, {
+        [`reactions.${emoji}`]: hasReacted ? arrayRemove(name) : arrayUnion(name)
+      });
+    } catch (err) { console.error(err); }
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    try {
+      const messageDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'messages', messageId);
+      await deleteDoc(messageDocRef);
+    } catch (err) { console.error(err); }
+  };
+
+  const getFirstUrl = (text) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const match = text.match(urlRegex);
+    return match ? match[0] : null;
+  };
+
+  if (loading) return <div className="flex items-center justify-center h-screen bg-slate-50"><Loader2 className="animate-spin text-blue-600" size={32} /></div>;
+
+  // Initial Authentication Screen
+  if (!chatProfile && !isAdmin) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-100 p-4">
+        <div className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-500">
+          <div className="bg-blue-600 p-8 text-white text-center relative">
+            <MessageCircle size={32} className="mx-auto mb-4" />
+            <h2 className="text-2xl font-bold tracking-tight">{authMode === 'admin' ? 'Admin Access' : 'Global Chat'}</h2>
+            <p className="text-blue-100 mt-2 text-sm">{authMode === 'admin' ? 'Restricted Access' : 'Join the community'}</p>
+          </div>
+          <form onSubmit={authMode === 'admin' ? handleAdminAuth : handleCustomAuth} className="p-8 space-y-5">
+            {authMode === 'admin' && <button type="button" onClick={() => setAuthMode('login')} className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-blue-600 mb-2"><ChevronLeft size={14} /> Back</button>}
+            {error && <div className="bg-red-50 text-red-700 text-xs p-3 rounded-lg border border-red-200 flex items-center gap-2"><AlertCircle size={14} />{error}</div>}
+            {authMode === 'signup' && (
+              <div className="flex flex-col items-center gap-3 py-2">
+                <Avatar src={formData.profilePic} name={formData.username || 'User'} size="xl" />
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="text-xs font-black text-blue-600 uppercase tracking-widest flex items-center gap-2"><Camera size={14} /> Upload Pic</button>
+                <input type="file" ref={fileInputRef} onChange={(e) => handleImageChange(e, (res) => setFormData({...formData, profilePic: res}))} accept="image/*" className="hidden" />
+              </div>
+            )}
+            <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{authMode === 'admin' ? 'Admin Key' : 'Username'}</label><input type={authMode === 'admin' ? 'password' : 'text'} placeholder="..." className="w-full px-4 py-3 bg-slate-50 border rounded-xl outline-none focus:border-blue-500 transition-all" value={authMode === 'admin' ? adminPassword : formData.username} onChange={(e) => authMode === 'admin' ? setAdminPassword(e.target.value) : setFormData({...formData, username: e.target.value})} /></div>
+            {authMode !== 'admin' && <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Password</label><input type="password" placeholder="••••••••" className="w-full px-4 py-3 bg-slate-50 border rounded-xl outline-none focus:border-blue-500 transition-all" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} /></div>}
+            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-lg transition-all">{authMode === 'login' ? 'Log In' : authMode === 'signup' ? 'Create Account' : 'Authenticate'}</button>
+            <div className="flex flex-col gap-3 items-center pt-2">
+              <button type="button" onClick={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setError(''); }} className="text-sm text-blue-600 font-semibold hover:underline">{authMode === 'login' ? "New here? Create account" : "Already have account? Log in"}</button>
+              <button type="button" onClick={() => { setAuthMode('admin'); setError(''); }} className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] hover:text-blue-600 transition-colors">Admin Access</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // Admin Dashboard
+  if (isAdmin) {
+    return (
+      <div className={`flex flex-col h-screen transition-colors duration-300 overflow-hidden ${isDarkMode ? 'bg-[#0f172a] text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+        <header className={`border-b px-4 md:px-6 py-4 flex items-center justify-between z-20 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+          <div className="flex items-center gap-3"><div className="bg-slate-900 p-2 rounded-xl text-white"><Shield size={22} className="text-blue-400" /></div><div><h1 className="text-lg font-extrabold leading-none uppercase tracking-tighter">Admin Panel</h1></div></div>
+          <div className="flex items-center gap-2"><button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-xl bg-slate-500/10">{isDarkMode ? <Sun size={18} /> : <Moon size={18} />}</button><button onClick={() => setIsAdmin(false)} className="px-4 py-2 bg-red-50 text-red-500 rounded-xl text-xs font-bold transition-all">Exit Admin</button></div>
+        </header>
+        <main className="flex-1 overflow-y-auto p-6 md:p-12">
+            <div className="max-w-4xl mx-auto space-y-8">
+                <section className={`p-8 rounded-3xl border ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100 shadow-sm'}`}>
+                    <div className="flex items-center gap-4 mb-6"><div className="p-3 rounded-2xl bg-blue-500/10 text-blue-500"><Hash size={24} /></div><div><h2 className="text-xl font-black uppercase tracking-widest">Data Management</h2></div></div>
+                    {adminTaskSuccess && <div className="mb-6 p-4 bg-green-500/10 text-green-500 rounded-2xl text-sm font-bold border border-green-500/20">Success.</div>}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button onClick={handleExportData} disabled={adminTaskLoading} className={`flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed ${isDarkMode ? 'border-slate-800 bg-slate-900/50' : 'border-slate-200 bg-slate-50'}`}><div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center mb-4">{adminTaskLoading ? <Loader2 className="animate-spin" size={24} /> : <Download size={24} />}</div><span className="font-bold text-sm uppercase tracking-widest">Export Save State</span></button>
+                        <div className="relative"><button onClick={() => importFileRef.current?.click()} disabled={adminTaskLoading} className={`w-full h-full flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed ${isDarkMode ? 'border-slate-800 bg-slate-900/50' : 'border-slate-200 bg-slate-50'}`}><div className="w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center mb-4">{adminTaskLoading ? <Loader2 className="animate-spin" size={24} /> : <Upload size={24} />}</div><span className="font-bold text-sm uppercase tracking-widest">Load Save State</span></button><input type="file" ref={importFileRef} onChange={handleImportData} accept=".txt" className="hidden" /></div>
+                    </div>
+                </section>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}><p className="text-[10px] font-black uppercase opacity-40 mb-1">Messages</p><p className="text-2xl font-black">{messages.length}</p></div>
+                    <div className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}><p className="text-[10px] font-black uppercase opacity-40 mb-1">Users</p><p className="text-2xl font-black">{activeUsers.length} Online</p></div>
+                    <div className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}><p className="text-[10px] font-black uppercase opacity-40 mb-1">Status</p><p className="text-2xl font-black text-emerald-500 flex items-center gap-2">Stable</p></div>
+                </div>
+            </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Chat View
+  return (
+    <div className={`flex flex-col h-screen transition-colors duration-300 overflow-hidden ${isDarkMode ? 'bg-[#0f172a] text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+      {showSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className={`w-full max-w-sm rounded-3xl shadow-2xl p-6 h-[80vh] overflow-y-auto ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>
+                <div className="flex items-center justify-between mb-6 sticky top-0 bg-inherit pb-2 z-10"><h2 className="text-lg font-black uppercase tracking-widest flex items-center gap-2 text-blue-500"><Settings size={20} /> Settings</h2><button onClick={() => setShowSettings(false)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"><X size={20} /></button></div>
+                <div className="space-y-8 pb-4">
+                    <div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className={`p-2 rounded-lg ${isDarkMode ? 'bg-blue-500/10' : 'bg-amber-500/10'}`}>{isDarkMode ? <Moon size={18} className="text-blue-400" /> : <Sun size={18} className="text-amber-500" />}</div><div><p className="text-sm font-bold">Dark Mode</p></div></div><button onClick={() => setIsDarkMode(!isDarkMode)} className={`w-12 h-6 rounded-full transition-colors relative ${isDarkMode ? 'bg-blue-600' : 'bg-slate-300'}`}><div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${isDarkMode ? 'left-7' : 'left-1'}`} /></button></div>
+                    <div className="space-y-4"><div className="flex items-center gap-3"><div className="p-2 rounded-lg bg-blue-500/10"><Type size={18} className="text-blue-500" /></div><div><p className="text-sm font-bold">Chat Sizing</p></div></div><div className="flex bg-slate-500/5 p-1 rounded-xl gap-1">
+                        {['sm', 'md', 'lg'].map(size => (<button key={size} onClick={() => setChatSize(size)} className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${chatSize === size ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-slate-500/10'}`}>{size === 'sm' ? 'Small' : size === 'md' ? 'Default' : 'Large'}</button>))}
+                    </div></div>
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3"><div className="p-2 rounded-lg bg-blue-500/10"><ThumbsUp size={18} className="text-blue-500" /></div><div><p className="text-sm font-bold">Quick Reactions</p></div></div>
+                        <div className="bg-slate-500/5 p-4 rounded-2xl border border-slate-500/10 space-y-4">
+                            <div className="flex flex-wrap gap-2">
+                                {chatProfile?.preferredReactions?.map((emoji, idx) => (
+                                    <button key={idx} onClick={() => handleUpdateReactions(chatProfile.preferredReactions.filter(e => e !== emoji))} className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center text-xl hover:bg-red-500 hover:text-white transition-all relative group">{emoji}<X size={10} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100" /></button>
+                                ))}
+                                {(chatProfile?.preferredReactions?.length || 0) < 6 && (<button onClick={() => setShowReactionCustomizer(true)} className="w-10 h-10 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:border-blue-500 hover:text-blue-500 transition-all"><PlusCircle size={20} /></button>)}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="space-y-4"><div className="flex items-center gap-3"><div className="p-2 rounded-lg bg-blue-500/10"><Camera size={18} className="text-blue-500" /></div><div><p className="text-sm font-bold">Profile Picture</p></div></div><div className="flex items-center gap-4 bg-slate-500/5 p-4 rounded-2xl border border-slate-500/10"><Avatar src={chatProfile?.profilePic} name={chatProfile?.username} size="lg" darkMode={isDarkMode} /><div className="flex-1"><button onClick={() => settingsFileInputRef.current?.click()} disabled={updatingProfile} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95">{updatingProfile ? 'Updating...' : 'Change Photo'}</button><input type="file" ref={settingsFileInputRef} onChange={(e) => handleImageChange(e, handleUpdateProfilePic)} accept="image/*" className="hidden" /></div></div></div>
+                    <div className="space-y-4"><div className="flex items-center gap-3"><div className="p-2 rounded-lg bg-blue-500/10"><Wallpaper size={18} className="text-blue-500" /></div><div><p className="text-sm font-bold">Chat Background</p></div></div><div className="bg-slate-500/5 p-4 rounded-2xl border border-slate-500/10 space-y-3">
+                        <div className="flex bg-white dark:bg-slate-900 border dark:border-slate-700 rounded-xl px-3 py-2 items-center gap-2"><LinkIcon size={14} className="opacity-40" /><input type="text" placeholder="Paste link..." className="flex-1 bg-transparent text-xs outline-none" onBlur={(e) => handleUpdateRoomBg(e.target.value)} /></div>
+                        <div className="flex gap-2"><button onClick={() => bgFileInputRef.current?.click()} className="flex-1 px-3 py-2 bg-slate-200 dark:bg-slate-700 text-[10px] font-black uppercase tracking-widest rounded-lg hover:opacity-80 transition-all">Upload BG</button><button onClick={() => handleUpdateRoomBg('')} className="px-3 py-2 bg-red-500/10 text-red-500 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-red-500 hover:text-white transition-all">Reset</button></div>
+                        <input type="file" ref={bgFileInputRef} onChange={(e) => handleImageChange(e, handleUpdateRoomBg)} accept="image/*" className="hidden" />
+                    </div></div>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {showReactionCustomizer && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+             <div className={`w-full max-w-sm rounded-3xl shadow-2xl p-6 h-[70vh] flex flex-col ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>
+                <div className="flex items-center justify-between mb-4"><h3 className="text-sm font-black uppercase tracking-widest">Select an Emoji</h3><button onClick={() => setShowReactionCustomizer(false)}><X size={20} /></button></div>
+                <div className="flex-1 overflow-y-auto grid grid-cols-6 gap-2 pr-2">
+                    {EMOJI_LIST.map((e, idx) => (<button key={idx} onClick={() => { if (!chatProfile.preferredReactions.includes(e)) handleUpdateReactions([...chatProfile.preferredReactions, e]); setShowReactionCustomizer(false); }} className="text-2xl p-2 hover:bg-blue-500/10 rounded-xl transition-all">{e}</button>))}
+                </div>
+             </div>
+        </div>
+      )}
+
+      {showSlotsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className={`w-full max-w-sm rounded-3xl shadow-2xl p-6 ${isDarkMode ? 'bg-slate-800' : 'bg-white'}`}>
+                <h2 className="text-lg font-black uppercase tracking-widest flex items-center gap-2 text-blue-500 mb-4">🎰 Slots</h2>
+                {error && <div className="mb-4 text-xs font-bold text-red-500 bg-red-500/10 p-3 rounded-xl">{error}</div>}
+                <div className="space-y-4">
+                    <p className="text-sm font-medium opacity-60">Balance: <span className="font-bold text-blue-500">{chatProfile?.points ?? 0}</span> pts</p>
+                    <input type="number" value={betAmount} onChange={(e) => setBetAmount(e.target.value)} className={`w-full px-4 py-3 rounded-xl border outline-none font-black text-xl text-center ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200'}`} placeholder="Bet Amount" />
+                    <div className="flex gap-2"><button onClick={() => setShowSlotsModal(false)} className="flex-1 py-3 text-xs font-black uppercase tracking-widest opacity-40">Cancel</button><button onClick={handlePlaySlots} className="flex-[2] py-3 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Spin</button></div>
+                </div>
+            </div>
+        </div>
+      )}
+
+      <header className={`border-b px-4 md:px-6 py-4 flex items-center justify-between shadow-sm z-20 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+        <div className="flex items-center gap-3"><Avatar src={chatProfile?.profilePic} name={chatProfile?.username} size="md" darkMode={isDarkMode} /><div><h1 className="text-lg font-extrabold leading-none">Global Chat</h1><p className="text-[10px] font-bold uppercase mt-1 opacity-50">Active as <span className="text-blue-500">{chatProfile?.username || '[ADMIN]'}</span></p></div></div>
+        <div className="flex items-center gap-2"><div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-blue-50 border-blue-100'}`}><Coins size={14} className="text-blue-500" /><span className="text-xs font-black text-blue-500">{chatProfile?.points ?? 0}</span></div><button onClick={() => setShowSidebar(!showSidebar)} className={`p-2 rounded-xl border transition-all flex items-center gap-2 text-xs font-bold ${showSidebar ? 'bg-blue-500/10 border-blue-500/20 text-blue-500' : 'opacity-60'}`}><Users size={16} /><span>{activeUsers.length}</span></button><button onClick={() => setShowSettings(true)} className={`p-2 rounded-xl transition-all border ${isDarkMode ? 'bg-slate-800 border-slate-700 hover:bg-slate-700' : 'bg-slate-100 border-transparent hover:bg-slate-200'} text-slate-500`}><Settings size={16} /></button><button onClick={() => { deletePresenceRecord(chatProfile?.username); setChatProfile(null); }} className="p-2 bg-red-500/10 hover:bg-red-50 text-red-500 hover:text-white rounded-xl transition-all"><LogOut size={16} /></button></div>
+      </header>
+
+      <div className="flex flex-1 overflow-hidden relative">
+        <main className={`flex-1 flex flex-col min-w-0 relative`} style={{ backgroundImage: roomBg ? `url(${roomBg})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+          {roomBg && <div className="absolute inset-0 bg-black/20 pointer-events-none" />}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 relative z-10">
+            {messages.length === 0 ? <div className="h-full flex flex-col items-center justify-center opacity-20"><Hash size={64} className="mb-2 text-slate-400" /><p className="text-sm font-bold uppercase text-slate-400">Silence is golden</p></div> : 
+              messages.map((msg) => {
+                const isMe = msg.senderName === chatProfile?.username || (isAdmin && msg.senderName === "[ADMIN]");
+                const reactions = msg.reactions || {};
+                const firstUrl = msg.type === 'text' ? getFirstUrl(msg.text) : null;
+                const userReactions = chatProfile?.preferredReactions || DEFAULT_REACTIONS;
+                return (
+                  <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start animate-in fade-in slide-in-from-bottom-2 duration-300'}`}>
+                    <div className="flex items-center gap-2 mb-1">{!isMe && <Avatar src={msg.senderPic} name={msg.senderName} size="sm" darkMode={isDarkMode} />}<span className="text-[10px] font-black uppercase tracking-widest opacity-60 text-slate-400">{isMe ? 'You' : msg.senderName}</span>{isMe && <Avatar src={msg.senderPic} name={msg.senderName} size="sm" darkMode={isDarkMode} />}</div>
+                    <div className="group relative max-w-[85vw] md:max-w-[550px]">
+                      {msg.type === 'slots' ? (<SlotMachine finalResult={msg.result} bet={msg.bet} winAmount={msg.winAmount} darkMode={isDarkMode} timestamp={msg.timestamp} />) : msg.type === 'gif' ? (<div className={`overflow-hidden rounded-2xl border-2 shadow-md ${isMe ? 'border-blue-600' : (isDarkMode ? 'border-slate-800' : 'border-white')} bg-slate-800`}><img src={msg.gifUrl} alt="Media" className="w-full h-auto max-h-96 object-contain" /></div>) : (<div className={`rounded-2xl shadow-sm font-medium break-words transition-all ${bubbleSizes[chatSize]} ${isMe ? 'bg-blue-600 text-white rounded-tr-none shadow-blue-500/10' : (isDarkMode ? 'bg-slate-800/90 text-slate-100 rounded-tl-none border border-slate-700 backdrop-blur-sm' : 'bg-white/90 text-slate-700 border border-slate-200 rounded-tl-none backdrop-blur-sm')}`}><FormattedText text={msg.text} />{firstUrl && <LinkPreview url={firstUrl} darkMode={isDarkMode} />}</div>)}
+                      <div className={`absolute -top-10 ${isMe ? 'right-0' : 'left-0'} opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full shadow-xl border flex items-center gap-1 z-10 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>{userReactions.map((emoji, eIdx) => (<button key={eIdx} onClick={() => handleReaction(msg.id, emoji)} className="hover:scale-125 transition-transform p-1"><span className={`${chatSize === 'lg' ? 'text-2xl' : 'text-xl'}`}>{emoji}</span></button>))}{(isMe || isAdmin) && <div className="ml-1 pl-1 border-l dark:border-slate-700 flex items-center"><button onClick={() => handleDeleteMessage(msg.id)} className="p-1 text-slate-400 hover:text-red-500 transition-colors"><Trash2 size={16} /></button></div>}</div>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-1.5">{Object.entries(reactions).map(([emoji, users]) => users?.length > 0 && (<button key={emoji} onClick={() => handleReaction(msg.id, emoji)} className={`px-2 py-0.5 rounded-full border text-sm font-bold transition-all ${users.includes(chatProfile?.username || "[ADMIN]") ? 'bg-blue-500 border-blue-400 text-white shadow-sm' : (isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400' : 'bg-white text-slate-400')}`}>{emoji} {users.length}</button>))}</div>
+                  </div>
+                );
+              })
+            }
+            {usersTypingList.length > 0 && <div className="text-[10px] font-black text-blue-500 uppercase italic animate-pulse z-10">... {usersTypingList[0].username} is typing</div>}
+          </div>
+          <footer className={`p-4 relative transition-colors border-t z-20 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+            {showEmojiPicker && (<div className={`absolute bottom-full left-4 mb-2 w-[280px] md:w-[350px] border rounded-3xl shadow-2xl overflow-hidden z-30 animate-in fade-in slide-in-from-bottom-2 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}><div className="h-48 overflow-y-auto p-3 grid grid-cols-6 md:grid-cols-8 gap-1.5 scrollbar-thin">{EMOJI_LIST.map((e, idx) => (<button key={`${e}-${idx}`} onClick={() => handleTyping(newMessage + e)} className={`hover:scale-125 transition-transform p-1 rounded-lg hover:bg-white/5 ${chatSize === 'sm' ? 'text-2xl' : chatSize === 'md' ? 'text-4xl' : 'text-5xl'}`}>{e}</button>))}</div></div>)}
+            {showColorPicker && (<div className={`absolute bottom-full left-12 mb-2 w-48 border rounded-2xl shadow-2xl p-3 z-30 animate-in fade-in slide-in-from-bottom-2 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}><div className="grid grid-cols-4 gap-2">{PRESET_COLORS.map(c => (<button key={c.hex} onClick={() => { applyFormatting(`[color:${c.hex}]`, '[/color]'); setShowColorPicker(false); }} className="w-8 h-8 rounded-full border dark:border-slate-600 shadow-sm transition-transform hover:scale-110" style={{ backgroundColor: c.hex }} />))}</div></div>)}
+            {showGifPicker && (<div className={`absolute bottom-full left-4 mb-2 w-[320px] md:w-[400px] border rounded-3xl shadow-2xl overflow-hidden z-30 animate-in fade-in slide-in-from-bottom-2 ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                <div className="p-4 border-b dark:border-slate-700 space-y-3">
+                  <div className="flex bg-slate-500/10 rounded-xl px-3 py-2 items-center gap-2"><Search size={14} className="text-slate-500" /><input type="text" placeholder="Search..." className="flex-1 bg-transparent text-sm outline-none font-semibold" value={gifSearchQuery} onChange={(e) => setGifSearchQuery(e.target.value)} /></div>
+                  <div className="flex items-center gap-2"><button onClick={() => messageImageInputRef.current?.click()} className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all"><Upload size={14} /> Upload Image</button><input type="file" ref={messageImageInputRef} onChange={(e) => handleImageChange(e, (res) => handleSendMessage(null, null, res))} accept="image/*" className="hidden" /></div>
+                </div>
+                <div className="h-64 overflow-y-auto p-3 grid grid-cols-2 gap-2">{isSearchingGifs ? <div className="col-span-2 flex items-center justify-center h-full"><Loader2 className="animate-spin text-blue-500" /></div> : (gifResults.length > 0 ? gifResults : CURATED_GIFS).map(gif => (<button key={gif.id} className="rounded-xl overflow-hidden aspect-video bg-slate-500/10 hover:ring-2 hover:ring-blue-500 transition-all" onClick={() => handleSendMessage(null, gif.media_formats?.gif?.url || gif.url)}><img src={gif.media_formats?.tinygif?.url || gif.url} alt="GIF" className="w-full h-full object-cover" /></button>))}</div>
+            </div>)}
+            <div className="max-w-4xl mx-auto flex items-center gap-1 mb-2 px-1"><button onClick={() => applyFormatting('**')} className="p-1.5 rounded hover:bg-slate-500/10 opacity-60 hover:opacity-100"><Bold size={16} /></button><button onClick={() => applyFormatting('*')} className="p-1.5 rounded hover:bg-slate-500/10 opacity-60 hover:opacity-100"><Italic size={16} /></button><button onClick={() => applyFormatting('__')} className="p-1.5 rounded hover:bg-slate-500/10 opacity-60 hover:opacity-100"><Underline size={16} /></button><button onClick={() => applyFormatting('~~')} className="p-1.5 rounded hover:bg-slate-500/10 opacity-60 hover:opacity-100"><Strikethrough size={16} /></button><button onClick={() => setShowColorPicker(!showColorPicker)} className={`p-1.5 rounded transition-all ${showColorPicker ? 'text-blue-500 bg-blue-500/10' : 'opacity-60 hover:opacity-100 hover:bg-slate-500/10'}`}><Palette size={16} /></button></div>
+            <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto flex items-center gap-2"><div className="flex items-center gap-1"><button type="button" onClick={() => { setShowEmojiPicker(!showEmojiPicker); setShowGifPicker(false); }} className={`p-2.5 rounded-xl transition-all ${showEmojiPicker ? 'bg-blue-500 text-white' : 'opacity-60 hover:opacity-100 hover:bg-slate-500/10'}`}><Smile size={24} /></button><button type="button" onClick={() => { setShowGifPicker(!showGifPicker); setShowEmojiPicker(false); }} className={`p-2.5 rounded-xl transition-all ${showGifPicker ? 'bg-blue-500 text-white' : 'opacity-60 hover:opacity-100 hover:bg-slate-500/10'}`}><ImageIcon size={24} /></button><button type="button" onClick={() => setShowSlotsModal(true)} className="p-2.5 rounded-xl transition-all opacity-60 hover:opacity-100 hover:bg-blue-500/10 text-blue-500" title="Play Slots">🎰 <span className="hidden sm:inline text-[10px] font-black uppercase ml-1">Slots</span></button></div><input ref={messageInputRef} type="text" value={newMessage} onChange={(e) => handleTyping(e.target.value)} placeholder="Message..." className={`flex-1 border rounded-2xl px-5 py-3 focus:ring-4 focus:ring-blue-500/10 outline-none font-medium transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-100 border-slate-200'} ${chatSize === 'sm' ? 'text-xs py-2' : chatSize === 'lg' ? 'text-lg py-4' : 'text-sm py-3'}`} /><button type="submit" disabled={!newMessage.trim()} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-30 text-white p-3 rounded-2xl shadow-lg active:scale-95 transition-all"><Send size={22} /></button></form>
+          </footer>
+        </main>
+        <aside className={`transition-all duration-300 border-l z-20 ${showSidebar ? 'w-64' : 'w-0 opacity-0 pointer-events-none'} ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}><div className="w-64 p-6 space-y-6 h-full overflow-y-auto"><h2 className="text-[10px] font-black uppercase tracking-widest opacity-40">In the Room ({activeUsers.length})</h2><div className="space-y-4">{activeUsers.map(u => (<div key={u.id} className="flex items-center gap-3"><Avatar src={u.profilePic} name={u.username} size="md" online={true} darkMode={isDarkMode} /><div className="flex-1 truncate"><div className="flex items-center gap-1.5"><p className="text-sm font-bold truncate">{u.username}</p><span className="text-[9px] font-black text-blue-500">{u.points ?? 0}p</span></div><p className="text-[10px] font-medium opacity-40">{u.isTyping ? 'Typing...' : 'Active'}</p></div></div>))}</div></div></aside>
+      </div>
+    </div>
+  );
+}
